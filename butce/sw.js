@@ -1,4 +1,4 @@
-var C = "bt27-202611241748";
+var C = "bt27-202611241752";
 var DOSYA = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./lib/jspdf.umd.min.js", "./lib/Carlito-Regular.ttf", "./lib/Carlito-Bold.ttf"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(C).then(function (c) { return c.addAll(DOSYA); }).then(function () { return self.skipWaiting(); }));
