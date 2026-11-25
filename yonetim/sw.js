@@ -1,4 +1,4 @@
-var ON = "dcy-", C = ON + "202611251322";
+var ON = "dcy-", C = ON + "202611251339";
 var DOSYA = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(C).then(function (c) { return c.addAll(DOSYA); }).then(function () { return self.skipWaiting(); }));
