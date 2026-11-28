@@ -53,9 +53,111 @@ function normal(s) {
   return s.toLowerCase().replace(/ı/g, "i").replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ö/g, "o").replace(/ü/g, "u").replace(/[^a-z0-9]/g, "");
 }
 function goster() { f.style.visibility = "visible"; }
-// Sayfa yüklenmeden yazılırsa kapının stilleri yeni sayfaya karışıyor (masaüstü Chrome, hatırlanan anahtar); yüklenince yaz
+// YENILE BASI
+// Yeni yayın: uygulama öne gelince surum.json okunur, değiştiyse sayfa yenilenir. Ekran aşağı çekilince de yenilenir.
+// SURUM yayında yayin.js tarafından yazılır (surum.json ile aynı değer).
+var SURUM = "202611280437";
+function yenileyici() {
+  if (yenileyici.kuruldu) return; yenileyici.kuruldu = true;
+  var taban = null, son = 0, ESIK = 55;
+  function git(v) { location.replace(location.pathname + "?v=" + encodeURIComponent(v) + location.hash); }
+  function oku() {
+    return fetch("surum.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j && typeof j.s === "string" && j.s ? j.s : null; }).catch(function () { return null; });
+  }
+  function denetle() {
+    var t = Date.now(); if (t - son < 3000) return; son = t;
+    oku().then(function (s) {
+      if (!s) return;
+      if (taban === null) {
+        taban = s;
+        // Açılışta eski kopya geldiyse bir kez yenile
+        if (/^\d{12}$/.test(SURUM) && /^\d{12}$/.test(s) && s > SURUM) {
+          var a = "dc.surum" + location.pathname, g = null;
+          try { g = sessionStorage.getItem(a); sessionStorage.setItem(a, s); } catch (e) {}
+          if (g !== s) git(s);
+        }
+        return;
+      }
+      if (s !== taban) git(s);
+    });
+  }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") denetle(); });
+  window.addEventListener("pageshow", denetle);
+  window.addEventListener("focus", denetle);
+  denetle();
+  // Aşağı çekince yenile
+  var el = null, y0 = null, x0 = 0, dy = 0, cek = false;
+  function ust() { return (window.pageYOffset || document.documentElement.scrollTop || (document.body && document.body.scrollTop) || 0) <= 0; }
+  function icKaydi(n) {
+    for (; n && n.nodeType === 1 && n !== document.body && n !== document.documentElement; n = n.parentNode) {
+      if (n.scrollTop > 0) { var o = getComputedStyle(n).overflowY; if (o === "auto" || o === "scroll") return true; }
+    }
+    return false;
+  }
+  function isaret() {
+    if (!document.getElementById("dc-cek-stil")) {
+      var st = document.createElement("style"); st.id = "dc-cek-stil";
+      st.textContent = "#dc-cek{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);width:40px;height:40px;margin-left:-20px;border-radius:50%;" +
+        "background:#14213D;border:2px solid #E0B83A;box-sizing:border-box;box-shadow:0 2px 8px rgba(20,33,61,.35);display:flex;align-items:center;justify-content:center;z-index:2147483647;" +
+        "pointer-events:none;opacity:0;transform:translateY(-60px)}#dc-cek svg{width:22px;height:22px}" +
+        "#dc-cek.don svg{animation:dc-don .8s linear infinite}@keyframes dc-don{to{transform:rotate(360deg)}}";
+      (document.head || document.documentElement).appendChild(st);
+    }
+    if (!el || !document.body.contains(el)) {
+      el = document.createElement("div"); el.id = "dc-cek"; el.setAttribute("aria-hidden", "true");
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFF3B0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">' +
+        '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+      document.body.appendChild(el);
+    }
+    el.className = ""; el.style.transition = "none";
+  }
+  function ciz() {
+    var p = Math.min(dy * 0.5, 90);
+    el.style.opacity = String(Math.min(1, p / ESIK));
+    el.style.transform = "translateY(" + (p - 50) + "px)";
+    el.firstChild.style.transform = "rotate(" + Math.round(p * 5) + "deg)";
+  }
+  function birak() {
+    if (!el) return;
+    el.style.transition = "transform .2s, opacity .2s"; el.style.opacity = "0"; el.style.transform = "translateY(-60px)";
+  }
+  document.addEventListener("touchstart", function (e) {
+    y0 = null; cek = false;
+    if (e.touches.length !== 1 || !ust()) return;
+    var t = e.target;
+    if (t && t.closest && t.closest("input,select,textarea,[contenteditable]")) return;
+    if (icKaydi(t)) return;
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; dy = 0;
+  }, { passive: true });
+  document.addEventListener("touchmove", function (e) {
+    if (y0 === null) return;
+    if (e.touches.length !== 1) { y0 = null; if (cek) birak(); cek = false; return; }
+    var d = e.touches[0].clientY - y0, dx = Math.abs(e.touches[0].clientX - x0);
+    if (!cek) {
+      if (d < 10 && dx < 10) return;
+      if (d <= dx || !ust()) { y0 = null; return; }
+      cek = true; isaret();
+    }
+    dy = Math.max(0, d); ciz();
+  }, { passive: true });
+  function bitti() {
+    if (y0 === null) return; y0 = null;
+    if (!cek) return; cek = false;
+    if (dy * 0.5 >= ESIK) {
+      el.style.transition = "transform .15s"; el.style.opacity = "1"; el.style.transform = "translateY(12px)";
+      el.firstChild.style.transform = ""; el.className = "don";
+      setTimeout(function () { git(Date.now()); }, 150);
+    } else birak();
+  }
+  document.addEventListener("touchend", bitti, { passive: true });
+  document.addEventListener("touchcancel", function () { y0 = null; if (cek) birak(); cek = false; }, { passive: true });
+}
+// YENILE SONU
+// Sayfa yüklenmeden yazılırsa kapının stilleri yeni sayfaya karışıyor (masaüstü Chrome, hatırlanan anahtar); yüklenince yaz.
+// Yazınca eski dinleyiciler silinir; yenileyici yeni sayfa yazıldıktan sonra kurulur.
 function yaz(buf) { var html = new TextDecoder().decode(buf);
-  function y() { document.open(); document.write(html); document.close(); }
+  function y() { document.open(); document.write(html); document.close(); try { yenileyici(); } catch (e) {} }
   if (document.readyState === "complete") setTimeout(y, 0); else window.addEventListener("load", function () { setTimeout(y, 0); }); }
 function coz(key) { return crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(P.i) }, key, b64(P.d)); }
 function turet(s) {
